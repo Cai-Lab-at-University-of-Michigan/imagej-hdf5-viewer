@@ -13,3 +13,9 @@ jobs:
       uses: gradle/gradle-build-action@v2
     - name: Run build with Gradle Wrapper
       run: ./gradlew fatJar
+    - name: Upload build reports
+      uses: actions/upload-artifact@v3
+      with:
+        name: jar-build
+        path: build/libs
+
