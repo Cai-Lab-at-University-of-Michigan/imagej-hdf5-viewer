@@ -13,9 +13,9 @@ jobs:
       uses: gradle/gradle-build-action@v2
     - name: Run build with Gradle Wrapper
       run: ./gradlew fatJar
-    - name: Upload build reports
+    - name: Upload build output
       uses: actions/upload-artifact@v3
       with:
-        name: jar-build
+        name: hdf5-viewer.jar
         path: build/libs
 
