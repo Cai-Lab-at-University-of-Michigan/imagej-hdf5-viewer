@@ -1,0 +1,124 @@
+apply plugin: 'java'
+//apply plugin: 'maven'
+
+group = 'ch.psi'
+version = '0.13.0'
+
+description = """"""
+
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+
+repositories {
+    mavenCentral()
+    maven { url "http://artifacts.psi.ch/artifactory/libs-releases" }
+    maven { url "http://maven.imagej.net/content/repositories/public/" }
+    flatDir {
+        dirs 'lib'
+    }
+}
+
+// define a provided scope
+configurations {
+    provided
+    compile.extendsFrom provided
+}
+
+dependencies {
+
+    compile name: 'sis-jhdf5-19.04.0'
+    compile name: 'sis-base-18.09.0'
+    compile name: 'commons-io-2.6'
+//    compile name: 'sis-base-18.09.0'
+//    compile group: 'cisd', name: 'jhdf5', version: '14.12.6'
+//    compile group: 'hdf5', name: 'hdf', version:'2.10.0'
+//    compile group: 'hdf5', name: 'hdfobj', version:'2.10.0'
+//    compile group: 'hdf5', name: 'hdf5', version:'2.10.0'
+//    compile group: 'hdf5', name: 'hdf5obj', version:'2.10.0'
+    compile group: 'org.slf4j', name: 'slf4j-api', version: '1.7.6'
+    testCompile group: 'junit', name: 'junit', version: '4.11'
+
+
+    provided group: 'net.imagej', name: 'ij', version: '1.53e'
+}
+
+task fatJar(type: Jar) {
+//    manifest {
+//        attributes 'Implementation-Title': 'CaView',
+//                'Implementation-Version': version,
+//                'Main-Class': 'ch.psi.caview.CaView'
+//    }
+    archiveBaseName = 'HDF5_Viewer'
+    from { (configurations.compile - configurations.provided).collect { it.isDirectory() ? it : zipTree(it) } }
+    with jar
+}
+
+//task distributionZip(type: Zip, dependsOn: [fatJar]) {
+//    baseName "${project.group}-jhdf5"
+//
+//    from('targets/dist') {
+//        into "${project.group}-jhdf5"
+//        include 'version.txt'
+//        include 'build.txt'
+//    }
+//
+//    from ("$buildDir/output/dist") {
+//        into "${project.group}-jhdf5"
+//        include '*'
+//    }
+//
+//    from ("$buildDir/output/dist") {
+//        into "${project.group}-jhdf5"
+//        include 'bin/*'
+//    }
+//
+//    from ("$buildDir/output/dist") {
+//        into "${project.group}-jhdf5"
+//        include 'doc/*'
+//    }
+//
+//    from (javadocJar.archivePath) {
+//        into "${project.group}-jhdf5/doc"
+//    }
+//
+//    from (exampleJar.archivePath) {
+//        into "${project.group}-jhdf5/doc"
+//    }
+//
+//    from (configurations.runtime) {
+//        include '*-sources*'
+//        into "${project.group}-jhdf5/sources"
+//    }
+//
+//    from (sourcesJar.archivePath) {
+//        into "${project.group}-jhdf5/sources"
+//    }
+//
+//    from (jar.archivePath) {
+//        into "${project.group}-jhdf5/lib"
+//    }
+//
+//    from (h5arCLIJar.archivePath) {
+//        into "${project.group}-jhdf5/lib"
+//    }
+//
+//    from (configurations.runtime) {
+//        exclude '*restriction*'
+//        exclude '*bcel*'
+//        exclude '*-sources*'
+//        into "${project.group}-jhdf5/lib"
+//    }
+//
+//    from ("libs") {
+//        into "${project.group}-jhdf5/lib"
+//        include 'native/**'
+//    }
+//
+//    from (configurations.runtime.collect {zipTree(it)}) {
+//        into "${project.group}-jhdf5/lib"
+//        include 'native/**/*'
+//    }
+//
+//}
+

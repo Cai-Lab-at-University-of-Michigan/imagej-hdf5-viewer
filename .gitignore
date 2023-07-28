@@ -1,0 +1,8 @@
+imagej.hdf5.iml
+.DS_Store
+.idea
+/target
+.gradle
+build
+out/
+**/.vscode/*
