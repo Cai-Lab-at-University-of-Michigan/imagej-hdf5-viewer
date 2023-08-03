@@ -1,14 +1,13 @@
 package ch.psi.imagej.hdf5;
 
+import java.util.Arrays;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import hdf.hdf5lib.H5;
 import hdf.object.Dataset;
 import hdf.object.h5.H5File;
 import ij.IJ;
-import ij.ImagePlus;
-import ij.ImageStack;
-import ij.io.FileOpener;
 import ij.process.ByteProcessor;
 import ij.process.ColorProcessor;
 import ij.process.FloatProcessor;
@@ -23,11 +22,17 @@ public class VirtualStackHDF5 extends BufferedVirtualStack {
 	private int bitDepth = 0;
 	private Dataset dataset;
 	private H5File file;
+	private long[] chunkSizes;
 	
 	public VirtualStackHDF5(H5File file, Dataset dataset){
 		// super((int) dataset.getDims()[2], (int) dataset.getDims()[1]);
 		this.dataset = dataset;
 		this.file = file;
+		this.chunkSizes = dataset.getChunkSize();
+
+		String pluginPath = System.getProperty("user.dir") + "/plugins/hdf5-plugin";
+		System.out.println("Setting plugin with path: " + pluginPath);
+		H5.H5PLappend(pluginPath);
 	}
 	
 	/** Does noting. */
@@ -56,35 +61,101 @@ public class VirtualStackHDF5 extends BufferedVirtualStack {
 
 			// Select what to readout
 			long[] selected = dataset.getSelectedDims();
-			selected[0] = 1;
+			if (this.chunkSizes != null) {
+				selected[0] = (this.chunkSizes[0] > proc_buffer_MAX) ? proc_buffer_MAX : this.chunkSizes[0];
+			} else {
+				selected[0] = 2;
+			}
+
 			selected[1] = dimensions[1];
 			selected[2] = dimensions[2];
 
+			System.out.println("Selected: " + Arrays.toString(selected));
+
 			long[] start = dataset.getStartDims();
-			start[0] = slice-1; // Indexing at image J starts at 1
+			long selectedIndex = selected[0] / 2;
+			start[0] = Math.max(slice - selectedIndex - 1, 0); // Indexing at image J starts at 1
+			System.out.println("Start: " + Arrays.toString(start));
 
 			Object wholeDataset = dataset.read();
-
 			if (wholeDataset instanceof byte[]) {
-				return (byte[]) wholeDataset;
+				wholeDataset = (byte[]) wholeDataset;
 			} else if (wholeDataset instanceof short[]) {
-				return (short[]) wholeDataset;
+				wholeDataset = (short[]) wholeDataset;
 			} else if (wholeDataset instanceof int[]) {
-				return HDF5Utilities.convertToFloat((int[]) wholeDataset);
+				wholeDataset = HDF5Utilities.convertToFloat((int[]) wholeDataset);
 			} else if (wholeDataset instanceof long[]) {
-				return HDF5Utilities.convertToFloat((long[]) wholeDataset);
+				wholeDataset = HDF5Utilities.convertToFloat((long[]) wholeDataset);
 			} else if (wholeDataset instanceof float[]) {
-				return (float[]) wholeDataset;
+				wholeDataset = (Float[]) wholeDataset;
 			} else if (wholeDataset instanceof double[]) {
-				return HDF5Utilities.convertToFloat((double[]) wholeDataset);
+				wholeDataset = HDF5Utilities.convertToFloat((double[]) wholeDataset);
 			} else {
-				logger.warning("Datatype not supported");
+				System.out.println("Unknown stack type");
+				throw new IllegalArgumentException("Unknown stack type");
 			}
+
+			long sliceSize = selected[1] * selected[2];
+			for (int s = 0; s < selected[0]; ++s) {
+				System.out.println("Adding to cache: " + (int) (s + start[0] + 1));
+				ImageProcessor ip = getProcessor(wholeDataset, dimensions, (int) (s * sliceSize), (int) ((s + 1) * sliceSize));
+				addToCache(ip, (int) (s + start[0] + 1));
+			}
+
+			System.out.println("Selected index: " + selectedIndex);
+			return getArraySubslice(wholeDataset, (int) (selectedIndex * sliceSize), (int) ((selectedIndex + 1) * sliceSize));
 		} catch (OutOfMemoryError | Exception e) {
 			logger.log(Level.WARNING, "Unable to open slice", e);
 		}
 		
 		return null;
+	}
+
+	private Object getArraySubslice(Object arr, int start, int end) {
+		if (arr instanceof byte[]) {
+			return Arrays.copyOfRange((byte[]) arr, start, end);
+		} else if (arr instanceof short[]) {
+			return Arrays.copyOfRange((short[]) arr, start, end);
+		} else if (arr instanceof int[]) {
+			return Arrays.copyOfRange((int[]) arr, start, end);
+		} else if (arr instanceof float[]) {
+			return Arrays.copyOfRange((float[]) arr, start, end);
+		} else {
+			throw new IllegalArgumentException("Unknown array type");
+		}
+	}
+
+	private ImageProcessor getProcessor(Object arr, long[] dimensions, int start, int end) {
+		ImageProcessor ip;
+
+		Object pixels = arr;
+		if (end != -1) {	
+			pixels = getArraySubslice(arr, start, end);
+		}
+		
+		if (pixels instanceof byte[]){
+			ip = new ByteProcessor((int) dimensions[2], (int) dimensions[1]);
+		}
+		else if (pixels instanceof short[]){
+			ip = new ShortProcessor((int) dimensions[2], (int) dimensions[1]);
+		}
+		else if (pixels instanceof int[]){
+			ip = new ColorProcessor((int) dimensions[2], (int) dimensions[1]);
+		}
+		else if (pixels instanceof float[]){
+			ip = new FloatProcessor((int) dimensions[2], (int) dimensions[1]);
+		}
+		else {
+			throw new IllegalArgumentException("Unknown stack type");
+		}
+		
+		ip.setPixels(pixels);
+		return ip;
+	}
+
+	private void addToCache(ImageProcessor ip, int slice) {
+		processor_buffer.put(slice, ip);
+		processor_fifo.add(slice);
 	}
 
 	/**
@@ -119,9 +190,7 @@ public class VirtualStackHDF5 extends BufferedVirtualStack {
             to_return = processor_buffer.get(slice);
         } else {
             IJ.log("Cache MISS (" + slice + ")");
-            to_return = getProcessor_internal(slice);
-            processor_buffer.put(slice, to_return);
-            processor_fifo.add(slice);
+            to_return = getProcessor_internal(slice);;
         }
 
         this.gui.updateStatus();
@@ -149,7 +218,8 @@ public class VirtualStackHDF5 extends BufferedVirtualStack {
 	}
 
 	public ImageProcessor getProcessor_internal(int n) {
-        //IJ.log("Loading Processor " + n + "...");
+        // IJ.log("Loading Processor " + n + "...");
+		System.out.println("Loading Processor " + n + "...");
         if (isOutOfRange(n)) {
             throw new IllegalArgumentException("Argument out of range: " + n);
         }
@@ -158,7 +228,7 @@ public class VirtualStackHDF5 extends BufferedVirtualStack {
 		final Object pixels = getPixels(n);
 		
 		// Todo support more ImageProcessor types
-		ImageProcessor ip;		
+		ImageProcessor ip = getProcessor(pixels, dimensions, 0, -1);
 		
 		if (pixels instanceof byte[]){
 			ip = new ByteProcessor((int) dimensions[2], (int) dimensions[1]);
