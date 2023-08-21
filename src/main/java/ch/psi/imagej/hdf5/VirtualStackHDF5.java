@@ -209,7 +209,7 @@ public class VirtualStackHDF5 extends BufferedVirtualStack {
 			} else if (pixels instanceof float[]) {
 				ip = new FloatProcessor((int) dimensions[2], (int) dimensions[1]);
 			} else {
-				throw new IllegalArgumentException("Unknown stack type");
+				throw new IllegalArgumentException("Unknown image type");
 			}
 
 			ip.setPixels(pixels);
