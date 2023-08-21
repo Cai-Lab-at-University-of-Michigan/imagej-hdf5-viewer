@@ -82,6 +82,10 @@ public class VirtualStackHDF5 extends BufferedVirtualStack {
 			long[] start = dataset.getStartDims();
 			start[0] = (slice - 1) / zChunkPreLoad * zChunkPreLoad; // Indexing at image J starts at 1
 
+			if ((start[0] + zChunkPreLoad) > dimensions[0]){
+				selected[0] = dimensions[0] - start[0];
+			}
+
 			Object wholeDataset = dataset.read();
 
 			if (wholeDataset instanceof byte[]) {
@@ -183,16 +187,17 @@ public class VirtualStackHDF5 extends BufferedVirtualStack {
 		}
 
 		long[] dimensions = dataset.getDims();
+		long[] selected = dataset.getSelectedDims();
+
 		final Object chunks = getChunks(n);
 		final int size = (int) dimensions[2] * (int) dimensions[1];
 		ArrayList<ImageProcessor> ips = new ArrayList<ImageProcessor>();
 
 		// Todo support more ImageProcessor types
-		for (int lec = 0; lec < zChunkPreLoad; ++lec) {
+		for (int lec = 0; lec < selected[0]; ++lec) {
 			ImageProcessor ip;
 			int startIdx = lec * size;
 			Object pixels = Array.newInstance(chunks.getClass().getComponentType(), size);
-			;
 			System.arraycopy(chunks, startIdx, pixels, 0, size);
 
 			if (pixels instanceof byte[]) {
