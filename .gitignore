@@ -5,8 +5,10 @@ imagej.hdf5.iml
 .gradle
 build
 out/
+bin/
 **/.vscode/*
 .class
+.log
 
 ######################
 # OS generated files #

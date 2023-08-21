@@ -1,6 +1,7 @@
 package ch.psi.imagej.hdf5;
 
 import java.awt.Component;
+import java.awt.FlowLayout;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -12,11 +13,11 @@ import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
+import javax.swing.JTextField;
 import javax.swing.ScrollPaneConstants;
 
 import hdf.object.Dataset;
-import javax.swing.JTextField;
-import java.awt.FlowLayout;
+import ij.IJ;
 
 public class SelectionPanel extends JPanel {
 
@@ -49,7 +50,28 @@ public class SelectionPanel extends JPanel {
 			public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus)	{
 				JLabel label = (JLabel) super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
 				final Dataset d = ((Dataset) value);
-				label.setText(d.getFullName()+" ("+d.getRank()+"D)");
+				long[] dimensions = d.getDims();
+				try {
+					d.getMetadata();
+				} // get chunking and compression info
+				catch (Exception ex) {
+					IJ.log("get chunking and compression info:" + ex);
+				}
+				String sizeStr = "";
+				if (dimensions != null) {
+					sizeStr += " Size:" + String.valueOf(dimensions[0]);
+					for (int i = 1; i < d.getRank(); i++) {
+						sizeStr += "x" + dimensions[i];
+					}
+				}
+				long[] chunks = d.getChunkSize();
+				if (chunks != null) {
+					sizeStr += " Chunk: " + String.valueOf(chunks[0]);;
+					for (int i = 1; i < d.getRank(); i++) {
+						sizeStr += "x" + chunks[i];
+					}
+				}
+				label.setText(d.getFullName()+" ("+d.getRank()+"D)" + sizeStr);
 				return label;
 
 			}
